@@ -15,12 +15,14 @@
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(LED_NUM, LED_PIN, NEO_GRB + NEO_KHZ800);
 long unsigned int  blinktime = 0;
 int pulseRate = 30;
-long pulseDelay = 40; // Delay between sequential pixels
-int pulseSteps = 100;
+long pulseDelay = 400; // Delay between sequential pixels
+int pulseSteps = 128;
 int color = 0;
 //long unsigned int  pulseTimer, pulseCtr = 0;
 uint8_t red, green, blue;// r, g, b, rStep, gStep, bStep;
 bool lastButton;// rAsc, gAsc, bAsc;
+int mode = 0;
+long decostart = 0;
 
 // IMPORTANT: To reduce NeoPixel burnout risk, add 1000 uF capacitor across
 // pixel power leads, add 300 - 500 Ohm resistor on first pixel's data input
@@ -32,19 +34,20 @@ void setup()
   if (F_CPU == 16000000) clock_prescale_set(clock_div_1);
   
   // initialize the digital pin as an output.
-  pinMode(BLINK_PIN, OUTPUT);
+//  pinMode(BLINK_PIN, OUTPUT);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
-  blinktime = millis();
+//  blinktime = millis();
 
-  red=colors[color][0];
-  green=colors[color][1];
-  blue=colors[color][2];
+//  red=colors[color][0];
+//  green=colors[color][1];
+//  blue=colors[color][2];
 
   for (int i=0; i < LED_NUM; i++)
   {
     pixels[i].ascending = TRUE;
     pixels[i].pulseTimer = blinktime;
-    pixels[i].pulseCtr = 0 - i*pulseDelay;
+    pixels[i].pulseLen = random(pulseSteps, 3*pulseSteps);
+    pixels[i].pulseCtr = random(-pulseSteps*3, 0);
     pixels[i].r = pixels[i].g = pixels[i].b = 0;
   }
 
@@ -57,106 +60,107 @@ void setup()
 void loop()
 {
     checkButton();
-    pulse();    
+    if (mode == DECO)
+    {
+      if (millis() - decostart > DECOTIME) mode = OFF_MODE;
+      pulse();
+    }
+    else if (mode == LO_LIGHT)
+    {
+      for (int i = 0; i < LED_NUM; i++)
+      {
+        strip.setPixelColor(i, LO_COLOR, LO_COLOR, LO_COLOR);
+      }
+    }
+    else if (mode == HI_LIGHT)
+    {
+      for (int i = 0; i < LED_NUM; i++)
+      {
+        strip.setPixelColor(i, HI_COLOR, HI_COLOR, HI_COLOR);
+      }
+    }
+    else if (mode == OFF_MODE)
+    {
+      for (int i = 0; i < LED_NUM; i++)
+      {
+        strip.setPixelColor(i, 0);
+      }
+    }
     strip.show();
-    blinkled();
+//    blinkled();
 }
 
 void checkButton()
 {
   if (digitalRead(BUTTON_PIN) == LOW and lastButton == HIGH)
   {
-    color++;
-    if (color >= 3) color=0;
-
-    red=colors[color][0];
-    green=colors[color][1];
-    blue=colors[color][2];
+//    color++;
+//    if (color >= COLOR_NUM) color=0;
+//
+//    red=colors[color][0];
+//    green=colors[color][1];
+//    blue=colors[color][2];
+      mode++;
+      if (mode >= NUM_MODES) mode = OFF_MODE;
+      if (mode == DECO) decostart = millis();
   }
   lastButton = digitalRead(BUTTON_PIN);
 }
 
 void pulse()
 {
-    unsigned long int ms = millis();
-    // Update each pixel
-    for (int j = 0; j < LED_NUM; j++)
+  unsigned long int ms = millis();
+  // Update each pixel
+  for (int j = 0; j < LED_NUM; j++)
+  {
+    if (ms - pixels[j].pulseTimer > pulseRate)
     {
-      if (ms - pixels[j].pulseTimer > pulseRate)
+      pixels[j].pulseTimer = ms;
+
+      // Determine what the new step number is
+      if (pixels[j].ascending) pixels[j].pulseCtr++;
+      else pixels[j].pulseCtr--;
+
+      // Check if this pixel needs to switch direction
+      if (pixels[j].pulseCtr == pixels[j].pulseLen)
       {
-        pixels[j].pulseTimer = ms;
+        pixels[j].ascending = FALSE;
+      }
+      else if (pixels[j].pulseCtr == -pixels[j].pulseLen/2)
+      {
+        pixels[j].ascending = TRUE;
+      }
 
-        // Determine what the new step number is
-        if (pixels[j].ascending) pixels[j].pulseCtr++;
-        else pixels[j].pulseCtr--;
+      // If this pixel is ascending and crossing 0, pick a new color
+      if (pixels[j].ascending and pixels[j].pulseCtr == 0)
+      {
+        randomColor(&pixels[j]);
+      }
 
-        // Check if this pixel needs to switch direction
-        if (pixels[j].pulseCtr == pulseSteps)
-        {
-          pixels[j].ascending = FALSE;
-        }
-        else if (pixels[j].pulseCtr == 0)
-        {
-          pixels[j].ascending = TRUE;
-        }
-
-        // If this pixel is active (counter >= 0), update its intensity
-        if (pixels[j].pulseCtr >= 0)
-        {
-          // Set the new intensity of the pixel
-//          pixels[j].r = (uint8_t)((float)red * ((float)pixels[j].pulseCtr/(float)pulseSteps));
-//          pixels[j].g = (uint8_t)((float)green * ((float)pixels[j].pulseCtr/(float)pulseSteps));
-//          pixels[j].b = (uint8_t)((float)blue * ((float)pixels[j].pulseCtr/(float)pulseSteps));
-          strip.setPixelColor(j, (uint8_t)((float)red * ((float)pixels[j].pulseCtr/(float)pulseSteps)), 
-                                 (uint8_t)((float)green * ((float)pixels[j].pulseCtr/(float)pulseSteps)), 
-                                 (uint8_t)((float)blue * ((float)pixels[j].pulseCtr/(float)pulseSteps)));
-        }
+      // If this pixel is active (counter >= 0), update its intensity
+      if (pixels[j].pulseCtr >= 0)
+      {
+        // Set the new intensity of the pixel
+        strip.setPixelColor(j, fadeColor(pixels[j].r, pixels[j].pulseCtr, pixels[j].pulseLen), 
+                               fadeColor(pixels[j].g, pixels[j].pulseCtr, pixels[j].pulseLen), 
+                               fadeColor(pixels[j].b, pixels[j].pulseCtr, pixels[j].pulseLen));
       }
     }
-  
-//  if (millis() - pulseTimer > pulseRate)
-//  {
-//    pulseTimer = millis();
-//    
-//    // Determine what the new step number is
-//    if (ascending) pulseCtr++;
-//    else pulseCtr--;
-//
-//    // Check if we need to switch direction
-//    if (pulseCtr == pulseSteps)
-//    {
-//      ascending = FALSE;
-//    }
-//    if (pulseCtr == 0)
-//    {
-//      ascending = TRUE;
-////      if (rAsc and red > 250) rAsc = FALSE;
-////      if (!rAsc and red < 5) rAsc = TRUE;
-////
-////      if (gAsc and green > 250) gAsc = FALSE;
-////      if (!gAsc and green < 5) gAsc = TRUE;
-////
-////      if (bAsc and blue > 250) bAsc = FALSE;
-////      if (!bAsc and blue < 5) bAsc = TRUE;
-////      
-////      if (rAsc) red+=5;
-////      else red-=5;
-////
-////      if (gAsc) green+=5;
-////      else green-=5;
-////
-////      if (bAsc) blue+=5;
-////      else blue-=5;
-//    }
-//
-//    r = (uint8_t)((float)red * ((float)pulseCtr/(float)pulseSteps));
-//    g = (uint8_t)((float)green * ((float)pulseCtr/(float)pulseSteps));
-//    b = (uint8_t)((float)blue * ((float)pulseCtr/(float)pulseSteps));
-//    for (int i=0; i < LED_NUM; i++)
-//    {
-//      strip.setPixelColor(i, r, g, b);
-//    }
-//  }
+  }
+}
+
+void randomColor(pulseControl_t *p)
+{
+  int c = random(0, COLOR_NUM-1);
+
+  p->r = colors[c][0];
+  p->g = colors[c][1];
+  p->b = colors[c][2];
+}
+
+uint8_t fadeColor(uint8_t color, long numer, int denom)
+{
+  return (uint8_t)(0.2*(float)color * ((float)numer/(float)denom));
 }
 
 void blinkled()
