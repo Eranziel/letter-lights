@@ -14,7 +14,7 @@
 
 #define BUTTON_PIN    3
 
-#define NUM_MODES     2   // Number of modes
+#define NUM_MODES     4   // Number of modes
 #define OFF_MODE      0   // Off
 #define DECO          1   // Decorative mode
 #define LO_LIGHT      2   // Dim light mode
