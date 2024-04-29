@@ -1,5 +1,8 @@
 /*
   Art project time!
+  Dependencies:
+    - Adafruit AVR Boards (https://learn.adafruit.com/adafruit-arduino-ide-setup/arduino-1-dot-6-x-ide)
+    - Adafruit Neopixels (https://github.com/adafruit/Adafruit_NeoPixel)
 */
 #include <avr/power.h>
 #include "LetterLight.h"

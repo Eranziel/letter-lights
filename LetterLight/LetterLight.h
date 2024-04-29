@@ -14,7 +14,7 @@
 
 #define BUTTON_PIN    3
 
-#define NUM_MODES     3   // Number of modes
+#define NUM_MODES     2   // Number of modes
 #define OFF_MODE      0   // Off
 #define DECO          1   // Decorative mode
 #define LO_LIGHT      2   // Dim light mode
@@ -22,7 +22,7 @@
 #define LO_COLOR      122 // Brightness of dim mode
 #define HI_COLOR      255 // Brightness of bright mode
 
-#define DECOTIME      600000 // 10 minutes
+#define DECOTIME      1800000 // 30 minutes
 
 struct pulseControl_t
 {
